@@ -7,6 +7,7 @@ use DTApi\Http\Requests;
 use DTApi\Models\Distance;
 use Illuminate\Http\Request;
 use DTApi\Repository\BookingRepository;
+use Illuminate\Support\Arr;
 
 /**
  * Class BookingController
@@ -33,19 +34,30 @@ class BookingController extends Controller
      * @param Request $request
      * @return mixed
      */
+
+
+    // Move validation to a separate class or use Laravel validation features
+    private function validateBooking(Request $request)
+    {
+        // Validation logic here
+    }
+
     public function index(Request $request)
     {
-        if($user_id = $request->get('user_id')) {
-
-            $response = $this->repository->getUsersJobs($user_id);
-
+        try{
+            $this->validateBooking($request);
+            // Instead of using env('ADMIN_ROLE_ID') and env('SUPERADMIN_ROLE_ID') directly in the code consider storing these values in a configuration file.
+            if($user_id = $request->get('user_id')) {
+                $response = $this->repository->getUsersJobs($user_id);
+            }elseif($request->__authenticatedUser->user_type == config('roles.admin') || $request->__authenticatedUser->user_type == config('roles.superadmin')){
+                $response = $this->repository->getAll($request);
+            }
+            return response($response);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
         }
-        elseif($request->__authenticatedUser->user_type == env('ADMIN_ROLE_ID') || $request->__authenticatedUser->user_type == env('SUPERADMIN_ROLE_ID'))
-        {
-            $response = $this->repository->getAll($request);
-        }
-
-        return response($response);
     }
 
     /**
@@ -54,9 +66,14 @@ class BookingController extends Controller
      */
     public function show($id)
     {
-        $job = $this->repository->with('translatorJobRel.user')->find($id);
-
-        return response($job);
+        try{
+            $response = $this->repository->with('translatorJobRel.user')->find($id);
+            return response($response);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     /**
@@ -65,11 +82,16 @@ class BookingController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->all();
-
-        $response = $this->repository->store($request->__authenticatedUser, $data);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            $data = $request->all();
+            $response = $this->repository->store($request->__authenticatedUser, $data);
+            return response($response);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
 
     }
 
@@ -80,11 +102,18 @@ class BookingController extends Controller
      */
     public function update($id, Request $request)
     {
-        $data = $request->all();
-        $cuser = $request->__authenticatedUser;
-        $response = $this->repository->updateJob($id, array_except($data, ['_token', 'submit']), $cuser);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            $data = $request->all();
+            $cuser = $request->__authenticatedUser;
+        // Use Arr::except instead of array_except as it deprecated
+            $response = $this->repository->updateJob($id, Arr::except($data, ['_token', 'submit']), $cuser);
+            return response($response);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     /**
@@ -93,12 +122,16 @@ class BookingController extends Controller
      */
     public function immediateJobEmail(Request $request)
     {
-        $adminSenderEmail = config('app.adminemail');
-        $data = $request->all();
-
-        $response = $this->repository->storeJobEmail($data);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+        // Remove unused variable if not needed
+            // $adminSenderEmail = config('app.adminemail');
+            return response($this->repository->storeJobEmail($request->all()));
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     /**
@@ -107,13 +140,18 @@ class BookingController extends Controller
      */
     public function getHistory(Request $request)
     {
-        if($user_id = $request->get('user_id')) {
-
-            $response = $this->repository->getUsersJobsHistory($user_id, $request);
-            return response($response);
+        try{
+            $this->validateBooking($request);
+            if($user_id = $request->get('user_id')) {
+                $response = $this->repository->getUsersJobsHistory($user_id, $request);
+                return response($response);
+            }
+            return null; // Consider returning a response with an appropriate status code instead of null
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
         }
-
-        return null;
     }
 
     /**
@@ -122,22 +160,32 @@ class BookingController extends Controller
      */
     public function acceptJob(Request $request)
     {
-        $data = $request->all();
-        $user = $request->__authenticatedUser;
-
-        $response = $this->repository->acceptJob($data, $user);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            $data = $request->all();
+            $user = $request->__authenticatedUser;
+            $response = $this->repository->acceptJob($data, $user);
+            return response($response);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     public function acceptJobWithId(Request $request)
     {
-        $data = $request->get('job_id');
-        $user = $request->__authenticatedUser;
-
-        $response = $this->repository->acceptJobWithId($data, $user);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            $data = $request->get('job_id');
+            $user = $request->__authenticatedUser;
+            $response = $this->repository->acceptJobWithId($data, $user);
+            return response($response);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     /**
@@ -146,12 +194,17 @@ class BookingController extends Controller
      */
     public function cancelJob(Request $request)
     {
-        $data = $request->all();
-        $user = $request->__authenticatedUser;
-
-        $response = $this->repository->cancelJobAjax($data, $user);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            $data = $request->all();
+            $user = $request->__authenticatedUser;
+            $response = $this->repository->cancelJobAjax($data, $user);
+            return response($response);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     /**
@@ -160,21 +213,27 @@ class BookingController extends Controller
      */
     public function endJob(Request $request)
     {
-        $data = $request->all();
-
-        $response = $this->repository->endJob($data);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            return response($this->repository->endJob($request->all()));
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
 
     }
 
     public function customerNotCall(Request $request)
     {
-        $data = $request->all();
-
-        $response = $this->repository->customerNotCall($data);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            return response($this->repository->customerNotCall($request->all()));
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
 
     }
 
@@ -184,92 +243,85 @@ class BookingController extends Controller
      */
     public function getPotentialJobs(Request $request)
     {
-        $data = $request->all();
-        $user = $request->__authenticatedUser;
-
-        $response = $this->repository->getPotentialJobs($user);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            $user = $request->__authenticatedUser;
+            return response($this->repository->getPotentialJobs($user));
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     public function distanceFeed(Request $request)
     {
-        $data = $request->all();
+        try{
+            $this->validateBooking($request);
+            $data = $request->all();
 
-        if (isset($data['distance']) && $data['distance'] != "") {
-            $distance = $data['distance'];
-        } else {
-            $distance = "";
-        }
-        if (isset($data['time']) && $data['time'] != "") {
-            $time = $data['time'];
-        } else {
-            $time = "";
-        }
-        if (isset($data['jobid']) && $data['jobid'] != "") {
-            $jobid = $data['jobid'];
-        }
+        // Simplify variable assignments using the null coalescing operator
+            $distance = $data['distance'] ?? "";
+            $time = $data['time'] ?? "";
+            $jobid = $data['jobid'] ?? "";
+            $session = $data['session_time'] ?? "";
+            $flagged = ($data['flagged'] == 'true') ? 'yes' : 'no';
+            $manually_handled = ($data['manually_handled'] == 'true') ? 'yes' : 'no';
+            $by_admin = ($data['by_admin'] == 'true') ? 'yes' : 'no';
+            $admincomment = $data['admincomment'] ?? "";
 
-        if (isset($data['session_time']) && $data['session_time'] != "") {
-            $session = $data['session_time'];
-        } else {
-            $session = "";
+        // Use Eloquent update method to update records
+            if ($time || $distance) {
+                Distance::where('job_id', '=', $jobid)->update(['distance' => $distance, 'time' => $time]);
+            }
+
+            if ($admincomment || $session || $flagged || $manually_handled || $by_admin) {
+                Job::where('id', '=', $jobid)->update([
+                    'admin_comments' => $admincomment,
+                    'flagged' => $flagged,
+                    'session_time' => $session,
+                    'manually_handled' => $manually_handled,
+                    'by_admin' => $by_admin
+                ]);
+            }
+
+            return response('Record updated!');
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
         }
-
-        if ($data['flagged'] == 'true') {
-            if($data['admincomment'] == '') return "Please, add comment";
-            $flagged = 'yes';
-        } else {
-            $flagged = 'no';
-        }
-        
-        if ($data['manually_handled'] == 'true') {
-            $manually_handled = 'yes';
-        } else {
-            $manually_handled = 'no';
-        }
-
-        if ($data['by_admin'] == 'true') {
-            $by_admin = 'yes';
-        } else {
-            $by_admin = 'no';
-        }
-
-        if (isset($data['admincomment']) && $data['admincomment'] != "") {
-            $admincomment = $data['admincomment'];
-        } else {
-            $admincomment = "";
-        }
-        if ($time || $distance) {
-
-            $affectedRows = Distance::where('job_id', '=', $jobid)->update(array('distance' => $distance, 'time' => $time));
-        }
-
-        if ($admincomment || $session || $flagged || $manually_handled || $by_admin) {
-
-            $affectedRows1 = Job::where('id', '=', $jobid)->update(array('admin_comments' => $admincomment, 'flagged' => $flagged, 'session_time' => $session, 'manually_handled' => $manually_handled, 'by_admin' => $by_admin));
-
-        }
-
-        return response('Record updated!');
     }
 
     public function reopen(Request $request)
     {
-        $data = $request->all();
-        $response = $this->repository->reopen($data);
-
-        return response($response);
+        try{
+            $this->validateBooking($request);
+            return response($this->repository->reopen($request->all()));
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     public function resendNotifications(Request $request)
     {
-        $data = $request->all();
-        $job = $this->repository->find($data['jobid']);
-        $job_data = $this->repository->jobToData($job);
-        $this->repository->sendNotificationTranslator($job, $job_data, '*');
-
-        return response(['success' => 'Push sent']);
+        try{
+            $this->validateBooking($request);
+            $data = $request->all();
+            $job = $this->repository->find($data['jobid']);
+            if (!$job) {
+            return response(['error' => 'Job not found'], 404); // HTTP 404 Not Found
+            }
+            $job_data = $this->repository->jobToData($job);
+            $this->repository->sendNotificationTranslator($job, $job_data, '*');
+            return response(['success' => 'Push sent']);
+        } catch (\Exception $e) {
+            // Handle exceptions
+            // log exceptions either in database or filebase.
+            return response()->json(['error' => 'Booking failed'], 500);
+        }
     }
 
     /**
@@ -277,18 +329,24 @@ class BookingController extends Controller
      * @param Request $request
      * @return \Illuminate\Contracts\Routing\ResponseFactory|\Symfony\Component\HttpFoundation\Response
      */
+
     public function resendSMSNotifications(Request $request)
     {
-        $data = $request->all();
-        $job = $this->repository->find($data['jobid']);
-        $job_data = $this->repository->jobToData($job);
-
+        $this->validateBooking($request);
         try {
-            $this->repository->sendSMSNotificationToTranslator($job);
-            return response(['success' => 'SMS sent']);
-        } catch (\Exception $e) {
-            return response(['success' => $e->getMessage()]);
+            $data = $request->all();
+            $job = $this->repository->find($data['jobid']);
+
+            if (!$job) {
+            return response(['error' => 'Job not found'], 404); // HTTP 404 Not Found
         }
+
+        $job_data = $this->repository->jobToData($job);
+        $this->repository->sendSMSNotificationToTranslator($job);
+        return response(['success' => 'SMS sent']);
+    } catch (\Exception $e) {
+        return response(['error' => $e->getMessage()], 500); // HTTP 500 Internal Server Error
     }
+}
 
 }
